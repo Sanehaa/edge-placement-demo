@@ -1,6 +1,6 @@
 # Dynamic Edge Server Placement — Solutions Engineering Case Study
 
-**[→ Open the interactive briefing](https://Sanehaa.github.io/edge-server-placement-demo/)** — a live diagnostic panel built on real evaluation data. Select a traffic load and watch coverage and distance respond; every number is pulled from the actual 25-seed simulation results.
+**[→ Open the interactive briefing](https://sanehaa.github.io/edge-placement-demo/)** — a live diagnostic panel built on real evaluation data. Select a traffic load and watch coverage and distance respond; every number is pulled from the actual 25-seed simulation results.
 
 **MSc dissertation, graded 86%.** *"Dynamic Edge Server Placement for Scalable IoT Networks: A Data-Driven Approach using Real-World Workloads"* — built on real Optus Melbourne CBD infrastructure data (125 server sites), with a novel placement algorithm (BAAP) designed and evaluated against the standard greedy baseline.
 
