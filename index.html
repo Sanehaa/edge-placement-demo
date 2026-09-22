@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal Briefing — Dynamic Edge Server Placement | Saneha Gill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0E1620;
+    --bg-2:#16212E;
+    --panel:#1B2733;
+    --line:#2C3B4A;
+    --coral:#FF6B52;
+    --coral-dim:#8a4032;
+    --cyan:#4FC3B8;
+    --cyan-dim:#2d6e68;
+    --text:#E8EDF1;
+    --text-dim:#8FA0AE;
+    --radius:3px;
+    --max:1180px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} *{animation-duration:.01ms !important; transition-duration:.01ms !important;} }
+  body{background:var(--bg); color:var(--text); font-family:'Inter', sans-serif; line-height:1.55; font-size:16px;}
+  h1,h2,h3{font-family:'Sora', sans-serif; font-weight:600; letter-spacing:-0.01em;}
+  a{color:inherit;}
+  :focus-visible{outline:2px solid var(--coral); outline-offset:3px;}
+  .wrap{max-width:var(--max); margin:0 auto; padding:0 28px;}
+  .mono{font-family:'JetBrains Mono', monospace;}
+  img{max-width:100%; display:block;}
+
+  /* scan-line top strip */
+  .scan-strip{border-bottom:1px solid var(--line); padding:13px 0; font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--text-dim);}
+  .scan-strip .wrap{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;}
+  .pulse{width:7px; height:7px; border-radius:50%; background:var(--cyan); display:inline-block; margin-right:8px; box-shadow:0 0 6px var(--cyan);}
+
+  header.hero{padding:64px 0 48px; border-bottom:1px solid var(--line); position:relative; overflow:hidden;}
+  .kicker{font-family:'JetBrains Mono', monospace; font-size:13px; color:var(--coral); border:1px solid var(--coral-dim); padding:4px 10px; border-radius:var(--radius); display:inline-block; margin-bottom:18px;}
+  h1.title{font-size:clamp(32px,4.8vw,52px); line-height:1.08; max-width:18ch; margin-bottom:22px;}
+  .dek{font-size:18px; color:var(--text-dim); max-width:62ch; margin-bottom:28px;}
+  .byline{font-size:14px; color:var(--text-dim); margin-bottom:34px;}
+  .byline strong{color:var(--text); font-weight:600;}
+  .hero-links{display:flex; gap:12px; flex-wrap:wrap;}
+  .btn{display:inline-flex; align-items:center; gap:8px; padding:11px 18px; font-size:14.5px; font-weight:500; border-radius:var(--radius); text-decoration:none; border:1px solid var(--line); transition:border-color .15s, background .15s;}
+  .btn:hover{border-color:var(--coral);}
+  .btn.primary{background:var(--coral); color:#1a0d0a; border-color:var(--coral); font-weight:600;}
+  .btn.primary:hover{background:#ff836c;}
+
+  section{padding:60px 0; border-bottom:1px solid var(--line);}
+  .sec-tag{font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--coral); margin-bottom:10px;}
+  h2.sec-title{font-size:clamp(23px,3vw,30px); margin-bottom:14px;}
+  .sec-desc{color:var(--text-dim); max-width:62ch; font-size:15px; margin-bottom:30px;}
+
+  /* readout stat strip */
+  .readouts{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); margin-bottom:8px;}
+  .readout{background:var(--bg-2); padding:22px 22px;}
+  .readout-num{font-family:'JetBrains Mono', monospace; font-size:30px; font-weight:600; color:var(--text); margin-bottom:6px;}
+  .readout-num.coral{color:var(--coral);}
+  .readout-num.cyan{color:var(--cyan);}
+  .readout-label{font-size:12.5px; color:var(--text-dim);}
+
+  /* Load selector */
+  .load-selector{display:flex; gap:8px; margin-bottom:28px; flex-wrap:wrap;}
+  .load-btn{font-family:'JetBrains Mono', monospace; font-size:13px; background:none; border:1px solid var(--line); color:var(--text-dim); padding:9px 18px; border-radius:var(--radius); cursor:pointer; transition:all .15s;}
+  .load-btn:hover{border-color:var(--text-dim); color:var(--text);}
+  .load-btn.active{background:var(--text); color:var(--bg); border-color:var(--text); font-weight:600;}
+
+  .panel-row{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); border:1px solid var(--line);}
+  @media (max-width:860px){.panel-row{grid-template-columns:1fr;}}
+  .panel{background:var(--bg-2); padding:26px;}
+  .panel h3{font-size:14.5px; font-weight:500; color:var(--text); margin-bottom:16px;}
+  .chart-holder{position:relative; height:260px;}
+  .interp-line{font-family:'JetBrains Mono', monospace; font-size:13px; color:var(--cyan); margin-top:14px; padding-top:14px; border-top:1px dashed var(--line);}
+
+  /* evidence figure blocks */
+  .figure{background:#fff; border-radius:var(--radius); padding:12px; margin-bottom:14px;}
+  .figure-caption{font-size:13.5px; color:var(--text-dim); max-width:70ch; line-height:1.6;}
+  .figure-caption b{color:var(--text);}
+
+  /* trade-off honesty callout */
+  .callout{background:var(--bg-2); border-left:3px solid var(--coral); padding:20px 24px; margin-top:24px; border-radius:0 var(--radius) var(--radius) 0;}
+  .callout-label{font-family:'JetBrains Mono', monospace; font-size:11.5px; color:var(--coral); margin-bottom:8px;}
+  .callout p{font-size:14.5px; color:var(--text-dim); line-height:1.6;}
+
+  /* formula block */
+  .formula{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px 24px; font-family:'JetBrains Mono', monospace; font-size:15px; color:var(--cyan); text-align:center; margin:20px 0;}
+
+  .stubs{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line);}
+  .stub{background:var(--bg-2); padding:22px; text-decoration:none; display:block; transition:background .15s;}
+  .stub:hover{background:#1f2c3a;}
+  .stub-tag{font-family:'JetBrains Mono', monospace; font-size:11.5px; color:var(--text-dim); margin-bottom:9px;}
+  .stub-title{font-family:'Sora', sans-serif; font-weight:600; font-size:16.5px; margin-bottom:7px;}
+  .stub-desc{font-size:13px; color:var(--text-dim);}
+  .stub-arrow{margin-top:12px; font-size:12.5px; color:var(--coral); font-family:'JetBrains Mono', monospace;}
+
+  footer{padding:36px 0 56px; font-size:13px; color:var(--text-dim); font-family:'JetBrains Mono', monospace;}
+  footer a{color:var(--text-dim); text-decoration:underline;}
+  footer a:hover{color:var(--coral);}
+</style>
+</head>
+<body>
+
+<div class="scan-strip">
+  <div class="wrap">
+    <span><span class="pulse"></span>SIGNAL BRIEFING · EDGE NETWORK DIAGNOSTIC</span>
+    <span>MSc DISSERTATION · GRADE 86%</span>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">CLIENT BRIEF — 5G EDGE INFRASTRUCTURE</span>
+    <h1 class="title">87% of your users are outside every server's reach. The data just hadn't said so yet.</h1>
+    <p class="dek">A solutions engineering case study on dynamic edge server placement — built on real Optus Melbourne infrastructure data, an MSc dissertation graded 86%, and a novel placement algorithm (BAAP) evaluated across 25 repeated simulation runs.</p>
+    <p class="byline">Presented by <strong>Saneha Gill</strong> · Business Analyst / Solutions Consultant · London</p>
+    <div class="hero-links">
+      <a class="btn primary" href="docs/dissertation.pdf">Download full dissertation</a>
+      <a class="btn" href="docs/demo_pitch_script.md">5-min pitch script</a>
+      <a class="btn" href="docs/objection_handling.md">Objection handling</a>
+    </div>
+  </div>
+</header>
+
+<section id="diagnostic">
+  <div class="wrap">
+    <div class="sec-tag">01 — LIVE DIAGNOSTIC</div>
+    <h2 class="sec-title">Select a traffic load. Watch coverage and distance respond.</h2>
+    <p class="sec-desc">Every number below comes from the actual 25-seed evaluation in the dissertation — nothing here is illustrative. Five traffic levels, two algorithms, real trade-offs.</p>
+
+    <div class="load-selector" role="group" aria-label="Select traffic load">
+      <button class="load-btn" data-load="100">100 users</button>
+      <button class="load-btn" data-load="500">500 users</button>
+      <button class="load-btn active" data-load="1000">1,000 users</button>
+      <button class="load-btn" data-load="2000">2,000 users</button>
+      <button class="load-btn" data-load="5000">5,000 users</button>
+    </div>
+
+    <div class="readouts">
+      <div class="readout"><div class="readout-num" id="r-greedy-cov">—</div><div class="readout-label">Greedy coverage</div></div>
+      <div class="readout"><div class="readout-num coral" id="r-baap-cov">—</div><div class="readout-label">BAAP coverage</div></div>
+      <div class="readout"><div class="readout-num" id="r-greedy-dist">—</div><div class="readout-label">Greedy avg. distance</div></div>
+      <div class="readout"><div class="readout-num cyan" id="r-baap-dist">—</div><div class="readout-label">BAAP avg. distance</div></div>
+    </div>
+
+    <div class="panel-row">
+      <div class="panel">
+        <h3>Coverage — Greedy vs BAAP (augmented data)</h3>
+        <div class="chart-holder"><canvas id="covChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>Avg. user-to-server distance (km)</h3>
+        <div class="chart-holder"><canvas id="distChart"></canvas></div>
+        <div class="interp-line" id="interpLine">→ Loading interpretation…</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="diagnosis">
+  <div class="wrap">
+    <div class="sec-tag">02 — ROOT CAUSE</div>
+    <h2 class="sec-title">The original data made high coverage structurally impossible</h2>
+    <p class="sec-desc">Before touching the algorithm, the underlying simulation data itself was audited. Seven checks surfaced nine distinct biases — the most severe of which capped coverage at 13.2%, regardless of which placement algorithm ran on top of it.</p>
+
+    <div class="readouts">
+      <div class="readout"><div class="readout-num coral">16,570 km²</div><div class="readout-label">area covered by metro users</div></div>
+      <div class="readout"><div class="readout-num coral">≈31 km²</div><div class="readout-label">area the original servers could reach</div></div>
+      <div class="readout"><div class="readout-num coral">13.2%</div><div class="readout-label">structural coverage ceiling — any algorithm</div></div>
+    </div>
+
+    <div class="figure"><img src="assets/bias_analysis.png" alt="Bias analysis chart showing six distinct data biases in the Melbourne edge server dataset"></div>
+    <p class="figure-caption"><b>Six of the nine biases identified</b>, run against the real Optus Melbourne CBD server dataset (125 sites) and generated user datasets (816 CBD, 131,312 metro). Bias 3 alone — reachability — showed 87% of metro users had no server within 3km, the latency-relevant range.</p>
+  </div>
+</section>
+
+<section id="fix">
+  <div class="wrap">
+    <div class="sec-tag">03 — CORRECTION</div>
+    <h2 class="sec-title">A four-stage pipeline rebuilt the environment before any algorithm was judged</h2>
+    <p class="sec-desc">Kernel Density Estimation sampling, Gaussian Mixture Model-generated suburban users, deduplicated server sites, and an expanded server network — combined, these lifted coverage from 13.2% to 96.3%, a 629% relative improvement, before BAAP was even introduced.</p>
+
+    <div class="readouts">
+      <div class="readout"><div class="readout-num cyan">99.2%</div><div class="readout-label">sampled users reachable within 3km, post-correction</div></div>
+      <div class="readout"><div class="readout-num cyan">14,899</div><div class="readout-label">augmented user records</div></div>
+      <div class="readout"><div class="readout-num cyan">28</div><div class="readout-label">expanded server network (from 125 confined sites)</div></div>
+    </div>
+
+    <div class="figure"><img src="assets/augmentation_validation.png" alt="Spatial distribution map showing original vs augmented user coverage, and a reachability histogram"></div>
+    <p class="figure-caption">Left: the real spatial spread of augmented users (grey) against the original metro footprint, with the 28 expanded server sites (triangles) and their 3km coverage radius (blue). Right: 99.2% of a 1,000-user sample now falls within reach — coverage now fails for a genuine reason (servers reaching capacity), not a data artifact.</p>
+
+    <div class="callout">
+      <div class="callout-label">HONEST FRAMING</div>
+      <p>The 629% improvement came entirely from fixing the data — not from a smarter algorithm. That finding shaped everything that followed: it's the difference between over-engineering a placement algorithm and first asking whether the evaluation environment can even produce a meaningful answer.</p>
+    </div>
+  </div>
+</section>
+
+<section id="algorithm">
+  <div class="wrap">
+    <div class="sec-tag">04 — THE ALGORITHM</div>
+    <h2 class="sec-title">BAAP: Bias-Aware Adaptive Placement</h2>
+    <p class="sec-desc">Once the environment was trustworthy, BAAP was designed to go one step further than the greedy baseline — weighting each user's importance by how under-represented their area is in the recorded data, not just by raw visible demand.</p>
+
+    <div class="formula">w<sub>i</sub> = 0.1 + 0.9 · norm[ 0.6 · norm(1/KDE(x<sub>i</sub>)) + 0.4 · norm(P<sub>suburb</sub>(x<sub>i</sub>)) ]</div>
+    <p class="figure-caption" style="text-align:center; margin-bottom:24px;">Sparse, under-recorded areas get more weight; every user retains at least a 0.1 minimum contribution. Same asymptotic complexity as the greedy baseline — no deployment cost trade-off.</p>
+
+    <div class="figure"><img src="assets/baap_performance_analysis.png" alt="Six-panel chart comparing BAAP and Greedy across coverage, distance, active servers, and estimated latency"></div>
+    <p class="figure-caption">At load 1,000, BAAP places served users <b>10.8% closer</b> to their server on average (1.05km vs 1.17km) — translating to roughly <b>0.6ms</b> less propagation-related latency. Every scenario stays under the 20ms latency threshold used throughout this study.</p>
+
+    <div class="callout">
+      <div class="callout-label">THE TRADE-OFF, STATED PLAINLY</div>
+      <p>BAAP is not a strict win. At load 1,000 it served 93.7% of users vs Greedy's 96.3% — 2.6% fewer people, in exchange for the ones it did serve being meaningfully closer to their server. At load 2,000, Greedy was actually the closer option. No single algorithm wins at every traffic level — a solutions conversation about this should present that trade-off, not hide it.</p>
+    </div>
+  </div>
+</section>
+
+<section id="status">
+  <div class="wrap">
+    <div class="sec-tag">05 — CASE STATUS</div>
+    <h2 class="sec-title">Full evidence, not just this summary</h2>
+    <p class="sec-desc">This briefing is a condensed view. The full technical record is available underneath it.</p>
+    <div class="stubs">
+      <a class="stub" href="docs/dissertation.pdf">
+        <div class="stub-tag">DISSERTATION · 86% GRADE</div>
+        <div class="stub-title">Full 15,000-word write-up</div>
+        <div class="stub-desc">Literature review, methodology, complete results tables, limitations.</div>
+        <div class="stub-arrow">Download PDF</div>
+      </a>
+      <a class="stub" href="notebook/FinalImplementation.html">
+        <div class="stub-tag">NOTEBOOK · REPRODUCIBLE</div>
+        <div class="stub-title">Bias analysis + BAAP implementation</div>
+        <div class="stub-desc">Full Python implementation, 25-seed evaluation loop.</div>
+        <div class="stub-arrow">View notebook</div>
+      </a>
+      <a class="stub" href="docs/demo_pitch_script.md">
+        <div class="stub-tag">PRESALES · 5-MIN SCRIPT</div>
+        <div class="stub-title">Client-facing demo pitch</div>
+        <div class="stub-desc">How this gets presented in a solutions engineering conversation.</div>
+        <div class="stub-arrow">Read script</div>
+      </a>
+      <a class="stub" href="docs/objection_handling.md">
+        <div class="stub-tag">FAQ · TECHNICAL & BUSINESS</div>
+        <div class="stub-title">Objection handling</div>
+        <div class="stub-desc">Anticipated questions from engineering and procurement stakeholders.</div>
+        <div class="stub-arrow">Read FAQ</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Built on real Optus Melbourne CBD infrastructure data. Dissertation: "Dynamic Edge Server Placement for Scalable IoT Networks" — MSc Computer Science, Dr Amin Karami (supervisor).
+    <a href="https://github.com/" target="_blank" rel="noopener">View source</a>
+  </div>
+</footer>
+
+<script>
+const RESULTS = {
+  100:  { gc:99.0, bc:99.0, gd:1.687, bd:1.668, interp:"→ Equivalent — both methods serve nearly everyone at low load." },
+  500:  { gc:99.3, bc:99.0, gd:1.410, bd:1.375, interp:"→ BAAP 2.5% closer, coverage nearly identical." },
+  1000: { gc:96.3, bc:93.7, gd:1.173, bd:1.046, interp:"→ BAAP 10.8% closer — its strongest result — but serves 2.6% fewer users." },
+  2000: { gc:69.9, bc:68.5, gd:0.829, bd:0.865, interp:"→ Greedy is actually closer here — no algorithm wins every scenario." },
+  5000: { gc:28.0, bc:28.0, gd:0.248, bd:0.248, interp:"→ Capacity saturation — all 28 servers full, results converge." }
+};
+
+let covChart, distChart;
+
+function fmtPct(n){ return n.toFixed(1) + '%'; }
+function fmtKm(n){ return n.toFixed(3) + ' km'; }
+
+function render(load){
+  const d = RESULTS[load];
+  document.getElementById('r-greedy-cov').textContent = fmtPct(d.gc);
+  document.getElementById('r-baap-cov').textContent = fmtPct(d.bc);
+  document.getElementById('r-greedy-dist').textContent = fmtKm(d.gd);
+  document.getElementById('r-baap-dist').textContent = fmtKm(d.bd);
+  document.getElementById('interpLine').textContent = d.interp;
+
+  const labels = ['100','500','1000','2000','5000'];
+  const gcData = labels.map(l => RESULTS[l].gc);
+  const bcData = labels.map(l => RESULTS[l].bc);
+  const gdData = labels.map(l => RESULTS[l].gd);
+  const bdData = labels.map(l => RESULTS[l].bd);
+  const activeIdx = labels.indexOf(String(load));
+
+  const pointRadius = (idx) => idx === activeIdx ? 7 : 3;
+
+  if (covChart) covChart.destroy();
+  covChart = new Chart(document.getElementById('covChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label:'Greedy', data:gcData, borderColor:'#8FA0AE', backgroundColor:'#8FA0AE', pointRadius:labels.map((_,i)=>pointRadius(i)), tension:0.15 },
+      { label:'BAAP', data:bcData, borderColor:'#FF6B52', backgroundColor:'#FF6B52', pointRadius:labels.map((_,i)=>pointRadius(i)), tension:0.15 }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#E8EDF1', font:{family:"'Inter', sans-serif", size:12} } } },
+      scales:{
+        x:{ grid:{color:'#2C3B4A'}, ticks:{color:'#8FA0AE', font:{family:"'JetBrains Mono', monospace", size:10.5}} },
+        y:{ grid:{color:'#2C3B4A'}, ticks:{color:'#8FA0AE', font:{family:"'JetBrains Mono', monospace", size:10.5}}, title:{display:true, text:'coverage %', color:'#8FA0AE'} }
+      }
+    }
+  });
+
+  if (distChart) distChart.destroy();
+  distChart = new Chart(document.getElementById('distChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label:'Greedy', data:gdData, borderColor:'#8FA0AE', backgroundColor:'#8FA0AE', pointRadius:labels.map((_,i)=>pointRadius(i)), tension:0.15 },
+      { label:'BAAP', data:bdData, borderColor:'#4FC3B8', backgroundColor:'#4FC3B8', pointRadius:labels.map((_,i)=>pointRadius(i)), tension:0.15 }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#E8EDF1', font:{family:"'Inter', sans-serif", size:12} } } },
+      scales:{
+        x:{ grid:{color:'#2C3B4A'}, ticks:{color:'#8FA0AE', font:{family:"'JetBrains Mono', monospace", size:10.5}} },
+        y:{ grid:{color:'#2C3B4A'}, ticks:{color:'#8FA0AE', font:{family:"'JetBrains Mono', monospace", size:10.5}}, title:{display:true, text:'km', color:'#8FA0AE'} }
+      }
+    }
+  });
+}
+
+document.querySelectorAll('.load-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.load-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    render(btn.dataset.load);
+  });
+});
+
+render(1000);
+</script>
+
+</body>
+</html>
